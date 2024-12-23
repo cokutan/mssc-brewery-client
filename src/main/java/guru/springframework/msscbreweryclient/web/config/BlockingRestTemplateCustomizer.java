@@ -1,34 +1,67 @@
 package guru.springframework.msscbreweryclient.web.config;
 
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.DefaultConnectionKeepAliveStrategy;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.classic.HttpClient;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.DefaultConnectionKeepAliveStrategy;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.core5.util.Timeout;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.web.client.RestTemplateCustomizer;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
-/**
- * Created by jt on 2019-08-08.
- */
 @Component
+@ConfigurationProperties(prefix = "sfg.brewery.connection")
 public class BlockingRestTemplateCustomizer implements RestTemplateCustomizer {
 
-    public ClientHttpRequestFactory clientHttpRequestFactory(){
+    private int maxTotal;
+    private int defaultMaxPerRoute;
+    private long requestTimeout;
+
+
+    public int getMaxTotal() {
+        return maxTotal;
+    }
+
+    public void setMaxTotal(int maxTotal) {
+        this.maxTotal = maxTotal;
+    }
+
+    public int getDefaultMaxPerRoute() {
+        return defaultMaxPerRoute;
+    }
+
+    public void setDefaultMaxPerRoute(int defaultMaxPerRoute) {
+        this.defaultMaxPerRoute = defaultMaxPerRoute;
+    }
+
+    public long getRequestTimeout() {
+        return requestTimeout;
+    }
+
+    public void setRequestTimeout(long requestTimeout) {
+        this.requestTimeout = requestTimeout;
+    }
+
+    @Override
+    public void customize(RestTemplate restTemplate) {
+        restTemplate.setRequestFactory(this.clientHttpRequestFactory());
+    }
+
+    public ClientHttpRequestFactory clientHttpRequestFactory() {
         PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
-        connectionManager.setMaxTotal(100);
-        connectionManager.setDefaultMaxPerRoute(20);
+        connectionManager.setMaxTotal(maxTotal);
+        connectionManager.setDefaultMaxPerRoute(defaultMaxPerRoute);
 
         RequestConfig requestConfig = RequestConfig
                 .custom()
-                .setConnectionRequestTimeout(3000)
-                .setSocketTimeout(3000)
+                .setConnectionRequestTimeout(Timeout.ofMilliseconds(requestTimeout))
                 .build();
 
-        CloseableHttpClient httpClient = HttpClients
+        HttpClient httpClient = HttpClients
                 .custom()
                 .setConnectionManager(connectionManager)
                 .setKeepAliveStrategy(new DefaultConnectionKeepAliveStrategy())
@@ -36,10 +69,5 @@ public class BlockingRestTemplateCustomizer implements RestTemplateCustomizer {
                 .build();
 
         return new HttpComponentsClientHttpRequestFactory(httpClient);
-    }
-
-    @Override
-    public void customize(RestTemplate restTemplate) {
-        restTemplate.setRequestFactory(this.clientHttpRequestFactory());
     }
 }
